@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Salesforce Headless Experience Layer — learned by building Case Next Action</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+window.addEventListener('DOMContentLoaded', function () {
+  if (!window.mermaid) return;
+  try {
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      securityLevel: 'loose',
+      flowchart: { curve: 'basis', padding: 18, htmlLabels: true },
+      themeVariables: {
+        primaryColor: '#0E7C86',
+        primaryTextColor: '#fff',
+        primaryBorderColor: '#0a5b63',
+        secondaryColor: '#5B8DEF',
+        tertiaryColor: '#f7f3eb',
+        lineColor: '#78716c',
+        fontFamily: 'system-ui,Segoe UI,sans-serif',
+        fontSize: '15px',
+        clusterBkg: '#fffdf8',
+        clusterBorder: '#e7e5e4',
+        edgeLabelBackground: '#fffdf8'
+      }
+    });
+  } catch (e) {}
+});
+</script>
+<style>
+  :root {
+    --req: #5B8DEF;
+    --des: #9B6DFF;
+    --bld: #0E7C86;
+    --adm: #E8A317;
+    --qa: #E85D4C;
+    --docs: #2D9F6F;
+    --router: #1A1A2E;
+    --ink: #1c1917;
+    --slate: #44403c;
+    --muted: #78716c;
+    --line: #e7e5e4;
+    --paper: #f7f3eb;
+    --card: #fffdf8;
+    --shadow: 0 2px 10px rgba(28,25,23,.06);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(ellipse at 10% 0%, rgba(91,141,239,.08), transparent 45%),
+      radial-gradient(ellipse at 90% 10%, rgba(14,124,134,.08), transparent 40%),
+      var(--paper);
+    color: var(--ink);
+    font: 17px/1.7 "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 200px minmax(0, 820px);
+    gap: 28px;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 28px 22px 96px;
+  }
+  .sticky-toc {
+    position: sticky;
+    top: 20px;
+    align-self: start;
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+  .sticky-toc .toc-title {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .sticky-toc a {
+    display: block;
+    color: var(--slate);
+    text-decoration: none;
+    padding: 5px 0 5px 10px;
+    border-left: 2px solid transparent;
+  }
+  .sticky-toc a:hover { color: var(--bld); border-left-color: var(--bld); }
+  .main { min-width: 0; }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .sticky-toc { display: none; }
+  }
+  .hero {
+    background: linear-gradient(135deg, #1A1A2E 0%, #0E7C86 70%, #2D9F6F 120%);
+    color: #fff;
+    border-radius: 18px;
+    padding: 36px 34px 30px;
+    box-shadow: 0 12px 36px rgba(26,26,46,.28);
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::after {
+    content: "";
+    position: absolute;
+    inset: auto -20% -40% 40%;
+    height: 180px;
+    background: radial-gradient(circle, rgba(255,255,255,.12), transparent 60%);
+    pointer-events: none;
+  }
+  .hero h1 {
+    margin: 0 0 12px;
+    font: 700 2rem/1.2 "IBM Plex Sans", "Segoe UI", sans-serif;
+    letter-spacing: -.02em;
+  }
+  .hero .sub {
+    margin: 0;
+    font-size: 1.05rem;
+    opacity: .93;
+    max-width: 40em;
+  }
+  .hero .byline { margin-top: 16px; font-size: 13px; opacity: .8; }
+  .hero-actions { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 9px 14px; border-radius: 999px;
+    font-size: 14px; font-weight: 600; text-decoration: none;
+    border: 1px solid rgba(255,255,255,.35);
+    color: #fff; background: rgba(255,255,255,.12);
+  }
+  .btn.solid { background: #fff; color: var(--router); border-color: #fff; }
+  h2 {
+    margin: 48px 0 14px;
+    font: 700 1.55rem/1.25 "IBM Plex Sans", sans-serif;
+    color: var(--ink);
+    scroll-margin-top: 18px;
+  }
+  h3 {
+    margin: 28px 0 10px;
+    font: 650 1.15rem/1.3 "IBM Plex Sans", sans-serif;
+    color: var(--slate);
+  }
+  p.story {
+    font-family: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+    font-size: 1.05rem;
+    line-height: 1.75;
+    color: #292524;
+  }
+  p { margin: 12px 0; }
+  a { color: var(--bld); }
+  code {
+    background: #efece4; color: #134e4a;
+    padding: 1px 6px; border-radius: 5px;
+    font: 850 13.5px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  pre.code {
+    background: #1A1A2E; color: #e7e5e4;
+    border-radius: 12px; padding: 14px 16px;
+    overflow: auto; font: 13px/1.55 ui-monospace, Menlo, monospace;
+    margin: 14px 0;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin: 16px 0;
+    box-shadow: var(--shadow);
+  }
+  .callout {
+    border-left: 4px solid var(--adm);
+    background: #fff8e8;
+    padding: 14px 16px;
+    border-radius: 0 12px 12px 0;
+    margin: 16px 0;
+  }
+  .callout.ok { border-left-color: var(--docs); background: #eefaf3; }
+  .callout.warn { border-left-color: var(--qa); background: #fff1f0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 11px; border-radius: 999px;
+    font-size: 13px; font-weight: 600;
+    border: 1px solid var(--line); background: #fff;
+  }
+  .chip.bld { background: #e6f5f6; color: #0a3f44; border-color: #9fd4d8; }
+  .chip.req { background: #e8f0fc; color: #1e3a6e; border-color: #b6d0f5; }
+  .chip.docs { background: #e8f7ef; color: #14523a; border-color: #9ed9bc; }
+  table {
+    width: 100%; border-collapse: collapse; margin: 14px 0;
+    font-size: 14px; background: #fff; border: 1px solid var(--line);
+    border-radius: 12px; overflow: hidden;
+  }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: #f5f0e6; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--slate); }
+  tr:last-child td { border-bottom: none; }
+  .flow-board {
+    background: linear-gradient(180deg, #fffef9, #f3efe6);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 18px 16px 16px;
+    margin: 18px 0;
+    box-shadow: var(--shadow);
+  }
+  figure.shot {
+    margin: 18px 0;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 12px 12px 10px;
+    box-shadow: var(--shadow);
+  }
+  figure.shot img, figure.shot video {
+    display: block;
+    width: 100%;
+    max-width: 720px;
+    margin: 0 auto;
+    border-radius: 10px;
+    background: var(--paper);
+  }
+  figure.shot.wide img, figure.shot.wide video { max-width: 100%; }
+  .yt {
+    position: relative;
+    width: 100%;
+    padding-bottom: 56.25%;
+    height: 0;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #1A1A2E;
+  }
+  .yt iframe {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%; border: 0;
+  }
+  figure.shot figcaption {
+    font-size: 13px;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 10px;
+  }
+  .wf-step {
+    display: grid;
+    grid-template-columns: 36px 1fr;
+    gap: 12px;
+    align-items: start;
+  }
+  .wf-rail { display: flex; flex-direction: column; align-items: center; }
+  .wf-dot {
+    width: 28px; height: 28px; border-radius: 999px;
+    display: flex; align-items: center; justify-content: center;
+    font: 700 12px/1 sans-serif; color: #fff; background: var(--bld);
+  }
+  .wf-dot.b { background: var(--des); }
+  .wf-dot.c { background: var(--req); }
+  .wf-dot.d { background: var(--docs); }
+  .wf-line {
+    width: 3px; flex: 1; min-height: 18px;
+    background: linear-gradient(#1A1A2E, #a8a29e);
+    margin: 4px 0;
+  }
+  .wf-body {
+    background: #fff; border: 1px solid var(--line);
+    border-radius: 12px; padding: 12px 14px; margin-bottom: 10px;
+  }
+  .wf-body strong { display: block; margin-bottom: 4px; }
+  .wf-body span { font-size: 13.5px; color: var(--slate); }
+  .click {
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: 13px;
+    background: #1A1A2E;
+    color: #e7e5e4;
+    padding: 2px 8px;
+    border-radius: 6px;
+  }
+  footer {
+    margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
+    font-size: 13px; color: var(--muted);
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="sticky-toc">
+  <div class="toc-title">On this page</div>
+  <a href="#playground">When it landed</a>
+  <a href="#what">What it does for Salesforce techies</a>
+  <a href="#learn">How we learned it</a>
+  <a href="#sample">The Case Next Action sample</a>
+  <a href="#trust">What stays in Salesforce</a>
+</nav>
+<main class="main">
+  <header class="hero">
+    <h1>Salesforce Headless Experience Layer</h1>
+    <p class="sub">HXL is in beta. The playground is how you learn it. We used it to build Case Next Action and run the card in Claude Desktop.</p>
+    <p class="byline">13 August 2026 · public sample · learned in the playground</p>
+    <div class="hero-actions">
+      <a class="btn solid" href="#what">What it does</a>
+      <a class="btn" href="https://www.headlessexperiencelayer.com/playground/">Open the HXL Playground</a>
+    </div>
+  </header>
+
+  <h2 id="playground">When HXL and the playground landed</h2>
+  <p class="story">You already know Headless 360. Here is the simple timeline for HXL itself.</p>
+  <div class="callout ok">
+    The Salesforce Headless Experience Layer (HXL) <strong>beta launched at the end of July 2026</strong>, with <strong>organization access rolling out in early August 2026</strong>. Full <strong>General Availability is planned for Dreamforce</strong> later this year. Learn it in the <a href="https://www.headlessexperiencelayer.com/playground/">HXL Playground</a>. For a short official click-through, see <a href="https://admin.salesforce.com/blog/2026/tour-hxl-playground-kate-clicks-through-it">Tour HXL Playground</a>.
+  </div>
+
+  <h2 id="what">What it does — and why Salesforce techies should care</h2>
+  <p class="story">HXL is the UI service inside Headless 360. You describe an interface once as Mosaic JSON — cards, badges, callouts, buttons, semantic variants like <code>primary</code> and <code>warning</code>. Slack, Agentforce, ChatGPT, Claude, Teams, or any MCP host paints that same tree with its own look. You do not rebuild Block Kit, then an LWC, then a chat markdown card for the same next action.</p>
+  <div class="flow-board">
+    <div class="mermaid">
+flowchart LR
+  J[Mosaic JSON<br/>one widget] --> P[Preview in<br/>HXL Playground]
+  P --> S[Slack]
+  P --> A[Agentforce]
+  P --> C[Claude / ChatGPT]
+  P --> M[Mobile / Teams]
+    </div>
+    <p style="margin:12px 0 0;font-size:13px;color:var(--muted);text-align:center">Write the JSON once. Confirm it in the playground. Each host deploys its own native view.</p>
+  </div>
+  <div class="card">
+    <strong>What that means on a real team</strong>
+    <table>
+      <thead><tr><th>Role</th><th>Why HXL is useful</th></tr></thead>
+      <tbody>
+        <tr><td>Admin</td><td>You already decide what a user should see. HXL is that same judgment for agents: which fields, which warning, which button — without a new page layout per channel.</td></tr>
+        <tr><td>Developer</td><td>One widget instead of three front ends. Bindings like <code>{!$case.subject}</code> and <code>meta.if</code> stay in metadata. The host owns pixels. You own the contract.</td></tr>
+        <tr><td>Architect</td><td>Presentation can travel. Sharing, FLS, and audit stay in Salesforce. Claude is another surface, not a sidecar copy of the org.</td></tr>
+        <tr><td>Agentforce builder</td><td>A case escalation or renewal alert can be a card the agent shows, not a paragraph the model invents each turn.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Use it when the moment is more than text — SLA at risk, approve this, take the next step. If a sentence is enough, skip HXL. If the same next action has to look native in Lightning <em>and</em> Slack <em>and</em> a chat host, this is the layer that stops you writing it three times.</p>
+  <p>In the playground that is three moves: browse components, flip host previews on a widget, expand the code and copy the Mosaic. That is how we started Case Next Action.</p>
+
+  <h2 id="learn">How we learned it: Case Next Action</h2>
+  <p class="story">We started in the playground with a case a queue would recognize. Payment failed on a renewal. SLA has two and a half hours left. The agent — human or otherwise — needs the number, the customer, the burn, and the next move. The playground already had cousins of this (case summary, SLA status). We wanted the one you act on.</p>
+  <p>So we built <strong>Case Next Action</strong>: a mosaic with a card, priority and SLA badges, a warning callout that only exists when the case is at risk, a recommended next step, and one primary button. Sample data is fictional — Northwind Traders, case 00001234, owner Alex Rivera. The sample lives here:</p>
+  <div class="callout ok">See the <a href="https://github.com/lparuchuru-titan/hxl-agentic-experience-layer#readme">README</a> for full implementation details and code: <a href="https://github.com/lparuchuru-titan/hxl-agentic-experience-layer">github.com/lparuchuru-titan/hxl-agentic-experience-layer</a></div>
+<pre class="code">{
+  "definition": "tile/callout",
+  "meta": { "if": "{!$case.slaAtRisk}" },
+  "attributes": { "variant": "warning", "title": "SLA at risk" }
+}</pre>
+  <p>When <code>slaAtRisk</code> is false, that block is not in the tree. Each host decides what “absent” means. That single line taught us more about HXL than the product headline did.</p>
+  <p>Then we did what the launch implied but did not finish for you: we wrapped the same idea as an MCP app so Claude Desktop could call <code>get_case_next_action</code> and mount the card in chat. Mosaic, WidgetBundle, server, and Settings → Developer → <strong>running</strong> are all in that repo. This is the path we actually walked.</p>
+  <div class="chips">
+    <span class="chip bld">Author in the playground</span>
+    <span class="chip req">Wrap as an MCP tool</span>
+    <span class="chip docs">Ask for it in Claude</span>
+  </div>
+  <div class="wf-step">
+    <div class="wf-rail"><div class="wf-dot">1</div><div class="wf-line"></div></div>
+    <div class="wf-body">
+      <strong>Describe the card in HXL</strong>
+      <span>Mosaic JSON in the playground. Bindings <code>{!$case.field}</code>. Semantic variants only. Check more than one host preview.</span>
+    </div>
+  </div>
+  <div class="wf-step">
+    <div class="wf-rail"><div class="wf-dot b">2</div><div class="wf-line"></div></div>
+    <div class="wf-body">
+      <strong>Keep a WidgetBundle if the org should show it too</strong>
+      <span>Same tiles, <code>{!$attrs.*}</code> plus <code>schema.json</code>. Optional for Claude. Required for Agentforce in a Salesforce org.</span>
+    </div>
+  </div>
+  <div class="wf-step">
+    <div class="wf-rail"><div class="wf-dot c">3</div><div class="wf-line"></div></div>
+    <div class="wf-body">
+      <strong>Give Claude a tool, not a JSON file</strong>
+      <span>Claude chat does not open Mosaic JSON by itself. MCP is the cable. HXL is what travels through it. Native stdio, not an HTTP proxy.</span>
+    </div>
+  </div>
+  <div class="wf-step">
+    <div class="wf-rail"><div class="wf-dot d">4</div></div>
+    <div class="wf-body">
+      <strong>Turn the server on, then ask</strong>
+      <span>Claude Desktop Settings → Desktop app → Developer → Local MCP servers. Badge must say <strong>running</strong>. New chat. Ask for the card.</span>
+    </div>
+  </div>
+
+  <h2 id="sample">The sample, running</h2>
+  <p>After the server is running, a new Claude Desktop chat gets one line:</p>
+<pre class="code">Show me the Case Next Action card</pre>
+  <p>Allow the tool if Claude asks. You want the white card — not a paragraph that says “here is the card” with a spinner underneath. Click <strong>Take next action</strong> and the widget talks back into the thread. In this sample the buttons send a chat message. They do not update Salesforce. The lesson stops at “the host can render and click.”</p>
+  <figure class="shot wide">
+    <video src="../media/claude-chat-demo.mp4" poster="../media/claude-chat-case-next-action.png" controls muted loop playsinline></video>
+    <figcaption>Case Next Action in Claude Desktop after we learned HXL the long way. Identity in the sidebar is blurred. Data is fictional.</figcaption>
+  </figure>
+  <div class="callout">First run we got a spinner. Claude wrote a confident summary. The iframe stayed blank. The HTML had not finished the MCP Apps handshake, and we had put an HTTP proxy in front of a server that wanted stdio. The README lists the fix. If a turn already broke, quit with ⌘Q and start a new chat. The host caches the widget aggressively.</div>
+
+  <h2 id="trust">What stays in Salesforce</h2>
+  <p class="story">Headless means the presentation can travel. It does not mean the case record should leave the platform. In a real org the same mosaic would bind through Salesforce — sharing, field-level security, audit — and Claude would be another surface.</p>
+  <p>If you want to repeat the sample, the story ends here. The clicks and file names are in the README.</p>
+  <div class="callout ok">Clone <a href="https://github.com/lparuchuru-titan/hxl-agentic-experience-layer">hxl-agentic-experience-layer</a>, follow the README, ask for the card. That is how we learned HXL: one component, one host, no second UI kit.</div>
+
+  <footer>
+    <p>docs/blog/20260813-headless-experience-layer.html · 13 August 2026</p>
+    <p>Independent sample. Product names belong to their owners. Sample case data is fictional. Claude chat media is redacted.</p>
+  </footer>
+</main>
+</div>
+</body>
+</html>
