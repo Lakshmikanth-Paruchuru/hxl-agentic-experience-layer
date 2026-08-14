@@ -407,12 +407,13 @@ flowchart LR
   </div>
 
   <h2 id="data">How data gets to the card</h2>
-  <p class="story">The mosaic is a view. It does not call Apex or SOQL. You send a JSON object whose keys match the bindings. Change the payload — case number, SLA flag, recommended action — and the same card re-renders. In the <a href="https://www.headlessexperiencelayer.com/playground/?renderer=mcp-app&amp;theme=claude#widget/local">playground local widget</a> that payload lives on <code>dataProviders</code>. In Claude it is the MCP tool result. In Agentforce it is the Lightning Type that matches <code>schema.json</code>.</p>
+  <p class="story"><strong>Yes — in a real org the source is Salesforce.</strong> The Case record (subject, priority, SLA, owner) lives in the org. Sharing, FLS, and audit stay there. HXL never opens a Case by itself. An Agentforce action or an MCP tool runs SOQL / Apex, maps the fields into a JSON object, and <em>sends</em> that object to the card. The mosaic is only a view. Change the payload — case number, SLA flag, recommended action — and the same card re-renders.</p>
+  <div class="callout ok">The playground <code>dataProviders</code> <code>inline-data</code> block is a <strong>stand-in</strong> so you can design without logging into an org. Northwind / <code>00001234</code> is fictional. Swap that object for a live Case query and the bindings do not change.</div>
   <div class="flow-board">
     <div class="mermaid">
 flowchart LR
-  SRC[Source of truth<br/>sample JSON / SOQL / Apex] --> PAY[JSON payload<br/>same keys every time]
-  PAY --> PG[Playground<br/>dataProviders.value]
+  SF[Salesforce Case<br/>SOQL / Apex / Agentforce] --> PAY[JSON payload<br/>same keys every time]
+  PAY --> PG[Playground stand-in<br/>dataProviders.value]
   PAY --> WB[WidgetBundle<br/>$attrs + schema.json]
   PAY --> MCP[MCP tool result<br/>ontoolresult]
   PG --> R[HXL renderer]
@@ -420,7 +421,7 @@ flowchart LR
   MCP --> R
   R --> H[Slack / ChatGPT / Claude / Agentforce]
     </div>
-    <p style="margin:12px 0 0;font-size:13px;color:var(--muted);text-align:center">One contract. Three hosts. Swap values, not tiles.</p>
+    <p style="margin:12px 0 0;font-size:13px;color:var(--muted);text-align:center">Salesforce owns the record. The card only receives a JSON copy of the fields it needs.</p>
   </div>
   <p>A <code>dataProvider</code> is a named bag. <code>expressionKey</code> is the name — we used <code>$case</code>, so every tile binds <code>{!$case.field}</code>. <code>value</code> is the dynamic object. Edit that object in the playground and the preview updates. You can call the bag <code>$record</code> or <code>$items</code>; stay consistent.</p>
 <pre class="code">{
@@ -481,15 +482,17 @@ sequenceDiagram
   participant User
   participant Claude
   participant Tool as get_case_next_action
+  participant SF as Salesforce Case
   participant Widget as case-next-action.html
   User->>Claude: Show case 00009999
   Claude->>Tool: caseNumber = 00009999
-  Tool->>Tool: payload = SAMPLE + override
-  Tool-->>Claude: content text = JSON
-  Claude->>Widget: ontoolresult(result)
-  Widget->>Widget: JSON.parse + render
+  Tool->>SF: SOQL / Apex with sharing
+  SF-->>Tool: Case fields
+  Tool-->>Claude: JSON payload
+  Claude->>Widget: ontoolresult
+  Widget->>Widget: bind and render
     </div>
-    <p style="margin:12px 0 0;font-size:13px;color:var(--muted);text-align:center">Live Case data belongs in the tool or an Agentforce action — not in the mosaic.</p>
+    <p style="margin:12px 0 0;font-size:13px;color:var(--muted);text-align:center">Salesforce is the source. The tool queries it. The mosaic only paints the result.</p>
   </div>
   <div class="callout">The playground URL with <code>renderer=mcp-app&amp;theme=claude#widget/local</code> is the local editor. Design-time data still comes from <code>dataProviders</code>. A real Claude Desktop chat only sees the MCP tool result. Keep the keys the same on every host.</div>
 
