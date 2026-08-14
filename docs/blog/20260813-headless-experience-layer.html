@@ -20,12 +20,21 @@ window.addEventListener('DOMContentLoaded', function () {
         primaryBorderColor: '#0a5b63',
         secondaryColor: '#5B8DEF',
         tertiaryColor: '#f7f3eb',
-        lineColor: '#78716c',
+        lineColor: '#1c1917',
         fontFamily: 'system-ui,Segoe UI,sans-serif',
         fontSize: '15px',
         clusterBkg: '#fffdf8',
         clusterBorder: '#e7e5e4',
-        edgeLabelBackground: '#fffdf8'
+        edgeLabelBackground: '#fffdf8',
+        signalColor: '#1c1917',
+        signalTextColor: '#1c1917',
+        labelTextColor: '#1c1917',
+        loopTextColor: '#1c1917',
+        noteTextColor: '#1c1917',
+        actorTextColor: '#fff',
+        actorBkg: '#0E7C86',
+        actorBorder: '#0a5b63',
+        actorLineColor: '#44403c'
       }
     });
   } catch (e) {}
@@ -204,6 +213,13 @@ window.addEventListener('DOMContentLoaded', function () {
     padding: 18px 16px 16px;
     margin: 18px 0;
     box-shadow: var(--shadow);
+  }
+  .flow-board .mermaid .messageText,
+  .flow-board .mermaid .loopText,
+  .flow-board .mermaid .labelText,
+  .flow-board .mermaid .sequenceNumber {
+    fill: #1c1917 !important;
+    color: #1c1917 !important;
   }
   figure.shot {
     margin: 18px 0;
