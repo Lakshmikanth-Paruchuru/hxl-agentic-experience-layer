@@ -267,6 +267,14 @@ window.addEventListener('DOMContentLoaded', function () {
   }
   .wf-body strong { display: block; margin-bottom: 4px; }
   .wf-body span { font-size: 13.5px; color: var(--slate); }
+  .pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 14px 0;
+  }
+  @media (max-width: 700px) { .pair { grid-template-columns: 1fr; } }
+  .pair .card { margin: 0; }
   .click {
     font-family: ui-monospace, Menlo, monospace;
     font-size: 13px;
@@ -288,6 +296,7 @@ window.addEventListener('DOMContentLoaded', function () {
   <a href="#playground">When it landed</a>
   <a href="#what">What it does for Salesforce techies</a>
   <a href="#learn">How we learned it</a>
+  <a href="#data">How data gets to the card</a>
   <a href="#sample">The Case Next Action sample</a>
   <a href="#trust">What stays in Salesforce</a>
 </nav>
@@ -380,6 +389,93 @@ flowchart LR
       <span>Claude Desktop Settings → Desktop app → Developer → Local MCP servers. Badge must say <strong>running</strong>. New chat. Ask for the card.</span>
     </div>
   </div>
+
+  <h2 id="data">How data gets to the card</h2>
+  <p class="story">The mosaic is a view. It does not call Apex or SOQL. You send a JSON object whose keys match the bindings. Change the payload — case number, SLA flag, recommended action — and the same card re-renders. In the <a href="https://www.headlessexperiencelayer.com/playground/?renderer=mcp-app&amp;theme=claude#widget/local">playground local widget</a> that payload lives on <code>dataProviders</code>. In Claude it is the MCP tool result. In Agentforce it is the Lightning Type that matches <code>schema.json</code>.</p>
+  <div class="flow-board">
+    <div class="mermaid">
+flowchart LR
+  SRC[Source of truth<br/>sample JSON / SOQL / Apex] --> PAY[JSON payload<br/>same keys every time]
+  PAY --> PG[Playground<br/>dataProviders.value]
+  PAY --> WB[WidgetBundle<br/>$attrs + schema.json]
+  PAY --> MCP[MCP tool result<br/>ontoolresult]
+  PG --> R[HXL renderer]
+  WB --> R
+  MCP --> R
+  R --> H[Slack / ChatGPT / Claude / Agentforce]
+    </div>
+    <p style="margin:12px 0 0;font-size:13px;color:var(--muted);text-align:center">One contract. Three hosts. Swap values, not tiles.</p>
+  </div>
+  <p>A <code>dataProvider</code> is a named bag. <code>expressionKey</code> is the name — we used <code>$case</code>, so every tile binds <code>{!$case.field}</code>. <code>value</code> is the dynamic object. Edit that object in the playground and the preview updates. You can call the bag <code>$record</code> or <code>$items</code>; stay consistent.</p>
+<pre class="code">{
+  "type": "mosaic",
+  "definition": "tile/mosaic",
+  "dataProviders": [
+    {
+      "definition": "inline-data",
+      "expressionKey": "$case",
+      "inline": true,
+      "value": {
+        "caseNumber": "00001234",
+        "subject": "Payment failed on renewal invoice",
+        "priority": "High",
+        "slaHoursLeft": 2.5,
+        "slaAtRisk": true,
+        "customerName": "Northwind Traders",
+        "recommendedAction": "Confirm the card on file, then send the retry link.",
+        "ownerName": "Alex Rivera"
+      }
+    }
+  ]
+}</pre>
+  <div class="pair">
+    <div class="card">
+      <strong>expressionKey</strong>
+      <p style="margin:8px 0 0">The data bag name. <code>$case</code> means <code>{!$case.subject}</code>. The playground Learn path walks static text → this binding → iteration → <code>meta.if</code>.</p>
+    </div>
+    <div class="card">
+      <strong>value</strong>
+      <p style="margin:8px 0 0">The payload you send. Swap this object — or have a tool produce the same shape — and the card changes. No tile JSON edits.</p>
+    </div>
+  </div>
+  <table>
+    <thead><tr><th>Surface</th><th>Where the payload lives</th><th>Binding</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Playground Mosaic</td>
+        <td><code>dataProviders[]</code> with <code>inline-data</code></td>
+        <td><code>{!$case.subject}</code></td>
+      </tr>
+      <tr>
+        <td>Org WidgetBundle</td>
+        <td><code>schema.json</code> attributes + host payload</td>
+        <td><code>{!$attrs.subject}</code></td>
+      </tr>
+      <tr>
+        <td>MCP / Claude</td>
+        <td>Tool return <code>content[0].text</code> as JSON</td>
+        <td>Widget <code>ontoolresult</code> parses and paints</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>When the same card is a Salesforce <code>uiWidget</code>, only the prefix changes: <code>{!$case.caseNumber}</code> becomes <code>{!$attrs.caseNumber}</code>. <code>schema.json</code> is the contract Agentforce must satisfy. Claude never reads the playground <code>dataProviders</code> block. The tool builds the JSON; the widget HTML applies it.</p>
+  <div class="flow-board">
+    <div class="mermaid">
+sequenceDiagram
+  participant User
+  participant Claude
+  participant Tool as get_case_next_action
+  participant Widget as case-next-action.html
+  User->>Claude: Show case 00009999
+  Claude->>Tool: caseNumber = 00009999
+  Tool->>Tool: payload = SAMPLE + override
+  Tool-->>Claude: content text = JSON
+  Claude->>Widget: ontoolresult(result)
+  Widget->>Widget: JSON.parse + render
+    </div>
+    <p style="margin:12px 0 0;font-size:13px;color:var(--muted);text-align:center">Live Case data belongs in the tool or an Agentforce action — not in the mosaic.</p>
+  </div>
+  <div class="callout">The playground URL with <code>renderer=mcp-app&amp;theme=claude#widget/local</code> is the local editor. Design-time data still comes from <code>dataProviders</code>. A real Claude Desktop chat only sees the MCP tool result. Keep the keys the same on every host.</div>
 
   <h2 id="sample">The sample, running</h2>
   <p>After the server is running, a new Claude Desktop chat gets one line:</p>
