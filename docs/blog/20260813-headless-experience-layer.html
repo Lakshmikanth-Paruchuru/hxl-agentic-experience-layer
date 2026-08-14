@@ -407,7 +407,7 @@ flowchart LR
   </div>
 
   <h2 id="data">How a real Case gets to the card</h2>
-  <p class="story">When an SDR asks Claude <em>“What’s the next action on case 00009999?”</em> they expect the live Salesforce Case — not Northwind. Claude does not have an org session. The mosaic does not run SOQL. <strong>Salesforce is still the source.</strong> A tool in the middle queries the Case (sharing and FLS still apply), maps the fields into one JSON object, and sends that object to the card. HXL only paints it.</p>
+  <p class="story">When an SDR asks Claude <em>“What’s the next action on case 00009999?”</em> they expect the live Salesforce Case. Claude does not have an org session. The mosaic does not run SOQL. <strong>Salesforce is still the source.</strong> A tool in the middle queries the Case (sharing and FLS still apply), maps the fields into one JSON object, and sends that object to the card. HXL only paints it.</p>
   <div class="flow-board">
     <div class="mermaid">
 sequenceDiagram
@@ -466,43 +466,25 @@ flowchart LR
     <p style="margin:12px 0 0;font-size:13px;color:var(--muted);text-align:center">One Case. One contract. Every host gets the same fields.</p>
   </div>
   <p>The mosaic never changes when the Case changes. You keep bindings like <code>{!$case.subject}</code> (playground) or <code>{!$attrs.subject}</code> (WidgetBundle). <code>meta.if</code> on <code>slaAtRisk</code> still hides the warning when the live field is false.</p>
-  <h3>What readers see in this repo vs a real org</h3>
-  <p>This public sample does <em>not</em> query your org. That is deliberate — no Connected App, no customer Cases in git. When you ask Claude for the card today, the tool returns a hardcoded Northwind object so the UI lesson still works. Treat that as a fixture. In your org, replace the fixture with <code>queryCase</code> above. The card JSON stays the same.</p>
-  <table>
-    <thead><tr><th></th><th>Real Case (what you ship)</th><th>This sample / playground</th></tr></thead>
-    <tbody>
-      <tr>
-        <td>Source</td>
-        <td>Salesforce Case, queried with the user’s sharing</td>
-        <td>Hardcoded <code>SAMPLE</code> in the MCP server, or playground <code>inline-data</code></td>
-      </tr>
-      <tr>
-        <td>What the prompt does</td>
-        <td>Claude extracts a case number and calls the tool</td>
-        <td>Same — but the tool ignores the org and returns Northwind</td>
-      </tr>
-      <tr>
-        <td>What the card receives</td>
-        <td>JSON of live fields</td>
-        <td>JSON of the same <em>shape</em>, fictional values</td>
-      </tr>
-      <tr>
-        <td>What you change to go live</td>
-        <td>The tool’s fetch. Not the mosaic.</td>
-        <td>—</td>
-      </tr>
-    </tbody>
-  </table>
-  <p>Playground <code>dataProviders</code> exist so you can design the card without logging in. <code>expressionKey: "$case"</code> names the bag; <code>value</code> is the stand-in payload. When you wire the real query, you stop sending that stand-in and start sending the SOQL result. Keep the keys identical.</p>
+  <p>Those bindings are the contract. In the playground, <code>dataProviders</code> names the bag (<code>$case</code>) and lists the fields the card will show. At runtime the tool fills the same keys from Salesforce. Design the shape once; every Case reuses it.</p>
 <pre class="code">{
   "dataProviders": [{
     "definition": "inline-data",
     "expressionKey": "$case",
     "inline": true,
-    "value": { "caseNumber": "00001234", "subject": "…" }
+    "value": {
+      "caseNumber": "",
+      "subject": "",
+      "priority": "",
+      "slaHoursLeft": 0,
+      "slaAtRisk": false,
+      "customerName": "",
+      "recommendedAction": "",
+      "ownerName": ""
+    }
   }]
 }</pre>
-  <div class="callout">Do not put SOQL in the mosaic. Do not paste Case fields into the Claude prompt and hope the card fills in. The prompt chooses <em>which</em> Case. The tool loads it from Salesforce. The card renders it.</div>
+  <div class="callout">The prompt chooses <em>which</em> Case. The tool loads it from Salesforce. The card renders it. Do not put SOQL in the mosaic, and do not paste Case fields into the chat hoping the card fills in.</div>
 
   <h2 id="sample">The sample, running</h2>
   <p>After the server is running, a new Claude Desktop chat gets one line:</p>
